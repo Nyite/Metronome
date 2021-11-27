@@ -1,18 +1,24 @@
 #include "dma.h"
 
-int16_t data_adc_buff[2][FFT_RESOLUTION];
-uint8_t fft_buffer_process_flag;
+int16_t data_adc_buff[2][FFT_RESOLUTION];			/* Double buffer for ADC microphone recording and process */
+uint8_t fft_buffer_process_flag;					/* Microphone ADC buffer flag */
 
-extern int16_t spectrum[FFT_SPECTRUM_RES];
-extern uint16_t waveform[DAC_RESOLUTION];
+extern int16_t spectrum[FFT_SPECTRUM_RES];			/* @main.c */
+extern uint16_t waveform[DAC_RESOLUTION];			/* @dac.c */
 
+/**
+  * @brief   DMA stream for ADC recording buffering interrupt handler
+  */
 void DMA2_Stream0_IRQHandler()
 {
 	DMA2->LIFCR |= DMA_LIFCR_CTCIF0;
 	fft_buffer_process_flag = FFT_BUFFER_FULL;
 }
 
-// DAC_OUT2 is on stream 6 of channel 7 of DMA1 //
+/**
+  * @brief   DMA stream initialization for DAC conversion
+  * @note		DAC_OUT2 is on channel 7 of DMA1_Stream6
+  */
 void DMA1_init() {
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA1EN;
 
@@ -20,7 +26,7 @@ void DMA1_init() {
 	DMA1_Stream6->M0AR = (uint32_t)(waveform);
 	DMA1_Stream6->NDTR = DAC_RESOLUTION;
 
-	DMA1_Stream6->CR |= DMA_SxCR_CHSEL_0 | DMA_SxCR_CHSEL_1 | DMA_SxCR_CHSEL_2; // Channel 7 selected
+	DMA1_Stream6->CR |= DMA_SxCR_CHSEL_0 | DMA_SxCR_CHSEL_1 | DMA_SxCR_CHSEL_2;	/* Channel 7 selected */
 	DMA1_Stream6->CR |= DMA_SxCR_MINC;
 	DMA1_Stream6->CR |= DMA_SxCR_MSIZE_0;
 	DMA1_Stream6->CR |= DMA_SxCR_PSIZE_0;
@@ -30,7 +36,10 @@ void DMA1_init() {
 	DMA1_Stream6->CR |= DMA_SxCR_EN;
 }
 
-// ADC1 is on stream 0 of channel 0 of DMA2 //
+/**
+  * @brief   DMA stream initialization for ADC recording buffering
+  * @note		ФВС1 is on channel 0 of DMA2_Stream0
+  */
 void DMA2_init() {
 	fft_buffer_process_flag = FFT_BUFFER_RESET;
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA2EN;

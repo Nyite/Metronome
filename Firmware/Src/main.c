@@ -1,60 +1,31 @@
-#include "stm32f4xx.h"
-#include "gpio.h"
-#include "timer.h"
-#include "usart.h"
-#include "dma.h"
-#include "dac.h"
-#include "adc.h"
-#include "buffer.h"
+#include "main.h"
 
-#define ARM_MATH_CM4
-#include "arm_math.h"
+#define ARM_MATH_CM4							/* CMSIS FFT lib define */
+#include "arm_math.h"							/* CMSIS FFT lib include */
 
-int16_t spectrum[FFT_SPECTRUM_RES];
-float fft_input[FFT_RESOLUTION];
-float fft_output[FFT_RESOLUTION];
+uint8_t spectrum[FFT_SPECTRUM_RES];				/* Spectrum [dB] of incoming microphone signal */
+float fft_input[FFT_RESOLUTION];				/* Raw ADC data to be processed in FFT */
+float fft_output[FFT_RESOLUTION];				/* Raw FFT processed data: complex values is form of [real1; imag1; real2; imag2; ...] */
 
-extern BUFFER TxData;
-extern uint8_t click_flag;
-extern uint8_t fft_buffer_process_flag;
-extern int16_t data_adc_buff[2][FFT_RESOLUTION];
+extern uint8_t btn_flag;						/* @timer.c */
+extern BUFFER TxData;							/* @buffer.c */
+extern uint8_t fft_buffer_process_flag;			/* @dma.c */
+extern int16_t data_adc_buff[2][FFT_RESOLUTION];/* @dma.c */
 
-arm_rfft_fast_instance_f32 fft_handler;
-
-void LedIndication_init() {
-	TIM7_init();
-	TIM4_init();
-}
-
-void SoundIndication_init() {
-	DAC2_init();
-	DMA1_init();
-	TIM6_init();
-}
-
-void Recording_init() {
-	TIM3_init();
-	ADC1_init();
-	DMA2_init();
-}
-
-void UART_Transiver_init() {
-	TIM5_init();
-	UART4_init();
-}
-
-void Recording_process();
-void FFT_process();
+arm_rfft_fast_instance_f32 fft_handler;			/* CMSIS lib FFT handler declaration */
 
 int main(void) {
-	GPIOD_init();
+	/* Program initialization */
+#ifndef SPECTRUM_DEBUG
 	LedIndication_init();
-	UART_Transiver_init();
 	SoundIndication_init();
+#endif
+	UART_Transiver_init();
 	Recording_init();
+	Button_init();
+	arm_rfft_fast_init_f32(&fft_handler, FFT_RESOLUTION);	/* CMSIS lib FFT handler initialization */
 
-	arm_rfft_fast_init_f32(&fft_handler, FFT_RESOLUTION);
-
+	/* Main process loop */
     while(1)
     {
     	USART_Transive();
@@ -62,6 +33,58 @@ int main(void) {
     }
 }
 
+/**
+  * @brief   Sound indication switch initialization
+  */
+void Button_init() {
+#ifdef SPECTRUM_DEBUG
+	btn_flag = BUTTON_RESET;
+#endif
+	GPIOA_Button_init();
+	EXTI_Button_init();
+	TIM2_init();
+}
+
+/**
+  * @brief   Sound indication switch initialization
+  */
+void LedIndication_init() {
+	GPIOD_init();
+	TIM7_init();
+	TIM4_init();
+}
+
+/**
+  * @brief   Sound indication initialization
+  */
+void SoundIndication_init() {
+	DAC2_init();
+	DMA1_init();
+	TIM6_init();
+}
+
+/**
+  * @brief   Microphone recording initialization
+  */
+void Recording_init() {
+	TIM3_init();
+	ADC1_init();
+	DMA2_init();
+}
+
+/**
+  * @brief   UART transceiver initialization
+  */
+void UART_Transiver_init() {
+	TIM5_init();
+	UART4_init();
+}
+
+/**
+  * @brief   Recorded ADC data process
+  * @note		DMA is configured in double buffer mode
+  * 			In this function only a full buffer is processed
+  */
 void Recording_process()
 {
 	if(fft_buffer_process_flag == FFT_BUFFER_FULL)
@@ -76,27 +99,33 @@ void Recording_process()
 	}
 }
 
+/**
+  * @brief   Complex absolute value function
+  */
 float complexABS(float real, float imag) {
 	return sqrtf(real*real+imag*imag);
 }
 
+/**
+  * @brief   Spectrum calculation function
+  */
 void FFT_process()
 {
 	arm_rfft_fast_f32(&fft_handler, fft_input, fft_output, 0);
 
-	uint16_t spectrum_point = 0;
-	uint8_t noise_offset = 100; //variable noise floor offset / default value 100
+	uint16_t spectrum_point = 0;	/* Additional iterator for spectrum array */
 
 	for (int i = 2; i < FFT_RESOLUTION; i = i + 2) {
-		spectrum[spectrum_point] = (int)(20*log10f(complexABS(fft_output[i], fft_output[i+1]))) - noise_offset;
-		if (spectrum[spectrum_point] < 0)
-			spectrum[spectrum_point] = 0;
-		if (spectrum[spectrum_point] > 13 && click_flag == 1 && TxData.Length == 0) {
+		int16_t tmp = (int)(20*log10f(complexABS(fft_output[i], fft_output[i+1]))) - NOISE_FLOOR;
+		spectrum[spectrum_point] = tmp > 0 ? tmp : 0; /* Spectrum [dB] of incoming microphone signal */
+#ifndef SPECTRUM_DEBUG
+		if (spectrum[spectrum_point] >= TRANSIENT_THR && (TIM5->CR1 & TIM_CR1_CEN) && TxData.Length == 0) {		/* Sound transient detector */
 			TIM5->CR1 &= ~TIM_CR1_CEN;
 			GPIOD_TOGGLE_PIN(GPIOD_PIN_15);
 			UART_Latency_Send();
-			click_flag = 0;
+
 		}
+#endif
 		spectrum_point++;
 	}
 }

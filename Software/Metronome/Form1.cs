@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO.Ports;
+using static System.IO.File;
 using System.Drawing.Imaging;
 
 namespace Metronome
@@ -19,13 +20,13 @@ namespace Metronome
         public delegate void ChangeStatusDelegate(string status, Color status_color);
         public ChangeStatusDelegate StatusDelegate;
 
-        int plotIndx = 0; // Index for osciloscape mode
         int patternSwitch = 0;
         int[] _noteLen;
         float[] _barCmp;
         int _barLen;
         int _notePngIndex;
         byte[] RxData;
+        string[] StrRx;
         byte[] RxChartData;
         byte[] Command = { 0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
         CheckBox[] _noteBoxes;
@@ -55,9 +56,9 @@ namespace Metronome
                     return;
                 }
                 bpm_val = Convert.ToUInt16(tBoxBpm.Text);
-                if (bpm_val > 500 || bpm_val < 30)
+                if (bpm_val > 250 || bpm_val < 30)
                 {
-                    MessageBox.Show("Entered bpm value is not supported.\nTempo may very in range from 30 to 500 bpm", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Entered bpm value is not supported.\nTempo may very in range from 30 to 250 bpm", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
                 rythm_val = check_Rythm();
@@ -93,7 +94,8 @@ namespace Metronome
         {
             this.UIDelegate = new AddDataDelegate(AddDataMethod);
             this.StatusDelegate = new ChangeStatusDelegate(SetStatusMethod);
-            RxData = new byte[8];
+            RxData = new byte[1025];
+            StrRx = new string[1024];
             RxChartData = new byte[32];
             _noteLen = new int[32];
             _barCmp = new float[10];
@@ -210,7 +212,6 @@ namespace Metronome
                 serialPort.StopBits = StopBits.One;
                 serialPort.Parity = Parity.None;
                 serialPort.Handshake = Handshake.None;
-                serialPort.ReadBufferSize = 8;
                 serialPort.WriteTimeout = 500;
                 serialPort.ReadTimeout = 500;
                 serialPort.PortName = cBoxCOMPort.Text;
@@ -288,7 +289,14 @@ namespace Metronome
                 if (serialPort.BytesToRead > 0)
                     try
                     {
-                        sp.Read(RxData, 0, 8);
+                        sp.Read(RxData, 0, 1);
+                        if (RxData[0] == 83)
+                        {
+                            while (serialPort.BytesToRead != 1024) ;
+                            sp.Read(RxData, 1, 1024);
+                        }   
+                        else
+                            sp.Read(RxData, 1, 7);
                         tBoxPortMonitor.Invoke(this.UIDelegate, new Object[] { RxData });
                     }
                     catch (TimeoutException exp)
@@ -300,13 +308,19 @@ namespace Metronome
         }
         public void AddDataMethod(byte[] RxDataSet)
         {
-            if (RxData[0] == 76) // 'L'
+            if (RxData[0] == 76) // 'L'atency mode
             {
                 latency_lable.Text = "Latency: " +  Convert.ToString(RxData[1] << 8 | RxData[2]) + "ms";
             }
-            else
+            else if (RxData[0] == 83) // 'S'pectrum mode
             {
-                tBoxPortMonitor.Text += BitConverter.ToString(Command) + "\t:\t" + BitConverter.ToString(RxData) /*Encoding.ASCII.GetString(RxData)*/;
+                for (int i = 1; i < 1025; i++)
+                    StrRx[i-1] = Convert.ToString(RxData[i]);
+                System.IO.File.WriteAllLines("Spectrum.txt", StrRx);
+            }
+            else // Tempo set answer
+            {
+                tBoxPortMonitor.Text += BitConverter.ToString(Command) + "\t:\t" + /*BitConverter.ToString(RxData)*/ Encoding.ASCII.GetString(RxData);
                 tBoxPortMonitor.AppendText(Environment.NewLine);
             }
             Array.Clear(RxData, 0, RxData.Length);
