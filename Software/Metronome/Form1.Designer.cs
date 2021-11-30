@@ -279,10 +279,10 @@ namespace Metronome
             // 
             this.cBoxNoteLen.FormattingEnabled = true;
             this.cBoxNoteLen.Items.AddRange(new object[] {
-            "1/4",
-            "1/8",
-            "1/16",
-            "1/32"});
+            "4/4",
+            "8/8",
+            "16/16",
+            "32/32"});
             this.cBoxNoteLen.Location = new System.Drawing.Point(425, 120);
             this.cBoxNoteLen.Margin = new System.Windows.Forms.Padding(2);
             this.cBoxNoteLen.Name = "cBoxNoteLen";
@@ -295,9 +295,9 @@ namespace Metronome
             this.label5.Location = new System.Drawing.Point(332, 122);
             this.label5.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(78, 13);
+            this.label5.Size = new System.Drawing.Size(76, 13);
             this.label5.TabIndex = 10;
-            this.label5.Text = "Note resolution";
+            this.label5.Text = "Time signature";
             // 
             // noteBox1
             // 
