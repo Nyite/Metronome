@@ -10,7 +10,7 @@
 
 /**
   * @brief   General UART package series: 	package type | upto 7 data bytes
-  * @note	 Tempo package series:	T (0x54) | tempo (2 bytes MSB to LSB) | note duration | 4 bytes of rhythm register
+  * @note	 Tempo package series:	T (0x54) | tempo (2 bytes MSB to LSB) | time signature | 4 bytes of rhythm register
   * 			Note duration variants are listed in NOTE_LENGTH enum in timer.h
   * @note	 Latency package series: L(0x4C) | Latency (2 bytes MSB to LSB)
   */
@@ -43,6 +43,10 @@
 		} \
 	} \
 	src->BRR = (mantissa << USARTDIV_MANTISA_POS) | fraction_mantissa;
+
+/* Spectrum debug mode transmission flags */
+#define SEND_RESET		0x0
+#define READY_TO_SEND	0x1
 
 /* UART initialization functions */
 void UART4_init();

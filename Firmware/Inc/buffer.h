@@ -40,6 +40,6 @@ uint8_t Buffer_GetFromFront(BUFFER* B, uint8_t* dataOut);
 /* Buffer overwrite functions */
 uint8_t Buffer_StringOverwrite(BUFFER* B, char str[], uint8_t str_len);
 uint8_t Buffer_LatencyOverwrite(BUFFER* B, uint16_t ltc);
-uint8_t Buffer_SpectrumOverwrite(BUFFER* B, uint8_t* spectrum, uint16_t start);
+uint8_t Buffer_SpectrumOverwrite(BUFFER* B);
 
 #endif /* _BUFFER_H_ */

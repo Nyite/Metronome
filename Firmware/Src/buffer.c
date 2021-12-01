@@ -6,6 +6,9 @@ BUFFER TxData;							/* Buffer for data to be transmitted */
 uint8_t RxDataArray[RX_PACKAGE_SIZE];	/* Memory allocation for BUFFER RxData */
 uint8_t TxDataArray[TX_PACKAGE_SIZE];	/* Memory allocation for BUFFER TxData */
 
+extern uint8_t spectrum_active_buffer;
+extern uint8_t spectrum[2][FFT_SPECTRUM_RES];
+
 /**
   * @brief   Rx & Tx buffers initialization
   */
@@ -102,11 +105,15 @@ uint8_t Buffer_LatencyOverwrite(BUFFER* B, uint16_t ltc)
 	return BUFFER_OK;
 }
 
-uint8_t Buffer_SpectrumOverwrite(BUFFER* B, uint8_t* spectrum, uint16_t start)
+uint8_t Buffer_SpectrumOverwrite(BUFFER* B)
 {
+	uint8_t spectrum_inactive_buffer = spectrum_active_buffer ? 0 : 1;
+	int16_t tmp;
 	B->DataBuff[0] = 'S';
-	for (int i = 1; i < SPECTRUM_PKG_SIZE; i++)
-		B->DataBuff[i] = spectrum[start++];
+	for (int i = 1; i < SPECTRUM_PKG_SIZE; i++) {
+		tmp = spectrum[spectrum_active_buffer][i] - spectrum[spectrum_inactive_buffer][i];
+		B->DataBuff[i] = tmp < 0 ? 0 : tmp;
+	}
 	B->iStart 	= 0;
 	B->iEnd 	= SPECTRUM_PKG_SIZE-1;
 	B->Length 	= SPECTRUM_PKG_SIZE;

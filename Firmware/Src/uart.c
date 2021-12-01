@@ -1,26 +1,23 @@
 #include "uart.h"
 
-extern BUFFER RxData;						/* @buffer.c */
-extern BUFFER TxData;						/* @buffer.c */
-extern uint8_t spectrum[FFT_SPECTRUM_RES];	/* @main.c */
-extern uint8_t btn_flag;					/* @timer.c */
-extern uint32_t rhythm_code;				/* @timer.c */
-extern uint8_t  bar_len;					/* @timer.c */
+uint8_t send_flag;
+
+extern BUFFER RxData;							/* @buffer.c */
+extern BUFFER TxData;							/* @buffer.c */
+extern uint8_t btn_flag;						/* @timer.c */
+extern uint32_t rhythm_code;					/* @timer.c */
+extern uint8_t  bar_len;						/* @timer.c */
 
 /**
   * @brief   UART interrupt handler function
   */
-void UART4_IRQHandler()
-{
-	if (UART4->SR & USART_SR_RXNE)
-	{
+void UART4_IRQHandler() {
+	if (UART4->SR & USART_SR_RXNE) {
 		Buffer_AddToEnd(&RxData, UART4->DR);
 		return;
 	}
-	if (UART4->SR & USART_SR_TXE)
-	{
-		if (Buffer_GetFromFront(&TxData, &(UART4->DR)) == BUFFER_EMPTY)
-		{
+	if (UART4->SR & USART_SR_TXE) {
+		if (Buffer_GetFromFront(&TxData, &(UART4->DR)) == BUFFER_EMPTY) {
 			UART4->CR1 &= ~USART_CR1_TXEIE;
 			Buffer_Flush(&TxData);
 		}
@@ -31,8 +28,10 @@ void UART4_IRQHandler()
   * @brief   UART initialization function
   * @note	 UART is used to change tempo & send latency
   */
-void UART4_init()
-{
+void UART4_init() {
+#ifdef SPECTRUM_DEBUG
+	send_flag = SEND_RESET;
+#endif
 	RTxBuffer_Init();
 	Buffer_Flush(&RxData);
 	GPIOC_UART4_init();
@@ -50,8 +49,7 @@ void UART4_init()
 /**
   * @brief   Received package validation and assignment function
   */
-uint8_t TempoPkg_Validate(uint16_t *tempo)
-{
+uint8_t TempoPkg_Validate(uint16_t *tempo) {
 	uint8_t val_flag = 0;
 	// Tempo range check //
 	*tempo = RxData.DataBuff[1] << 8 | RxData.DataBuff[2];
@@ -60,8 +58,7 @@ uint8_t TempoPkg_Validate(uint16_t *tempo)
 	bar_len = RxData.DataBuff[3]*4;
 	rhythm_code = RxData.DataBuff[4] << 24 | RxData.DataBuff[5] << 16 | RxData.DataBuff[6] << 8 | RxData.DataBuff[7];
 	// Note division & rhythm check //
-	switch (RxData.DataBuff[3])
-	{
+	switch (RxData.DataBuff[3]) {
 		case ONE_FORTH:
 			val_flag = rhythm_code & ONE_FORTH_MASK ? 1 : 0;
 			break;
@@ -86,11 +83,9 @@ uint8_t TempoPkg_Validate(uint16_t *tempo)
 void pkg_Process()
 {
 	uint16_t tempo;
-	switch (RxData.DataBuff[0])
-	{
+	switch (RxData.DataBuff[0]) {
 		case 'T':
-			if (TempoPkg_Validate(&tempo) == PKG_OK)
-			{
+			if (TempoPkg_Validate(&tempo) == PKG_OK) {
 				set_Tempo(tempo);
 				Buffer_StringOverwrite(&TxData, "Tmp_set", 7);
 			}
@@ -105,20 +100,16 @@ void pkg_Process()
 /**
   * @brief   UART transceiver function
   */
-void USART_Transive()
-{
-#ifndef SPECTRUM_DEBUG
-	if (RxData.Length == RxData.Size)	/* A full package is received */
-	{
+void USART_Transive() {
+	if (RxData.Length == RxData.Size) {	/* A full package is received */
 		pkg_Process();
 		Buffer_Flush(&RxData);
 		UART4->CR1 |= USART_CR1_TXEIE;	/* Start feedback transaction */
 	}
-#else
-	if (btn_flag == BUTTON_SET)
-	{
-	    btn_flag = BUTTON_RESET;
-	    Buffer_SpectrumOverwrite(&TxData, spectrum, 0);
+#ifdef SPECTRUM_DEBUG
+	if (send_flag == READY_TO_SEND) {
+		send_flag = SEND_RESET;
+	    Buffer_SpectrumOverwrite(&TxData);
 	    UART4->CR1 |= USART_CR1_TXEIE;
 	}
 #endif
@@ -127,8 +118,7 @@ void USART_Transive()
 /**
   * @brief   UART latency transmitter function
   */
-void UART_Latency_Send()
-{
+void UART_Latency_Send() {
 	Buffer_LatencyOverwrite(&TxData, TIM5->CNT);
 	UART4->CR1 |= USART_CR1_TXEIE;		/* Start latency transaction */
 }

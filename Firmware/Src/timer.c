@@ -1,6 +1,5 @@
 #include "timer.h"
 
-uint8_t btn_flag;						/* Button press flag [used only in SPECTRUM_DEBUG mode] */
 uint32_t rhythm_code;					/* rhythm register representing bool state for each note in a bar */
 uint8_t  bar_len;						/* Musical bar length */
 
@@ -53,14 +52,10 @@ void TIM4_IRQHandler() {
 void TIM2_IRQHandler() {
 	TIM2->SR &= ~TIM_SR_UIF;
 	if (GPIOA->IDR & GPIO_IDR_IDR_0) {
-#ifndef SPECTRUM_DEBUG
 		if (DAC->CR & DAC_CR_EN2)
 			DAC->CR &= ~DAC_CR_EN2;
 		else
 			DAC->CR |= DAC_CR_EN2;
-#else
-		btn_flag = BUTTON_SET;
-#endif /* SPECTRUM_DEBUG */
 	}
 }
 

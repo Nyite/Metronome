@@ -8,9 +8,6 @@
 #include "gpio.h"
 #include "dac.h"
 
-#define BUTTON_SET		1
-#define BUTTON_RESET	0
-
 /* Set functions */
 void set_Tempo(uint16_t tempo);
 

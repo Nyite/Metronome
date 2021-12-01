@@ -25,12 +25,13 @@
 #define BEEP_FREQ		440			/* Sound indication frequency is Hz */
 
 #define FFT_RESOLUTION	2048		/* FFT sample pool [power of 2] */
+#define NOISE_FLOOR		90			/* Noise floor offset [dB] / default value is 90dB */
+#define TRANSIENT_THR	12			/* Transient volume change detection threshold [dB] */
 #ifndef SPECTRUM_DEBUG
-	#define NOISE_FLOOR		100		/* Noise floor offset [dB] / default value is 100dB */
+	#define LOW_PASS_CUTOFF_FREQ 1000	/* Low pass filter cutoff frequency [Hz] */
 #else
-	#define NOISE_FLOOR		0
+	#define LOW_PASS_CUTOFF_FREQ SAMPLE_FREQ
 #endif
-#define TRANSIENT_THR	14			/* Transient threshold [dB] / default value is 14dB */
 
 /* Note length code for note replay and UART transmission */
 enum NOTE_LENGTH
